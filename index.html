@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebTerminal</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css"
+      rel="stylesheet"
+    />
+    <script src="wasm_exec.js"></script>
+    <script>
+      class Backend {
+        constructor() {
+          this.onDataCallback = null;
+          this.writeCallback = null;
+          this.resizeCallback = null;
+        }
+
+        load() {
+          var go = new Go();
+
+          return WebAssembly.instantiateStreaming(
+            fetch("webterminal.wasm"),
+            go.importObject
+          ).then((results) => {
+            go.run(results.instance);
+          });
+        }
+
+        write(data) {
+          this.writeCallback(data);
+        }
+
+        onData(callback) {
+          this.onDataCallback = callback;
+        }
+
+        resize(cols, rows) {
+          this.resizeCallback(cols, rows);
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <h1></h1>
+    <div id="terminal"></div>
+    <script>
+      var term = new Terminal({
+        cols: 120,
+        rows: 40,
+      });
+
+      var backend = new Backend();
+      backend.load().then(() => {
+        console.info("Go Initialized");
+
+        term.open(document.getElementById("terminal"));
+
+        backend.onData((data) => {
+          term.write(data);
+        });
+
+        term.onData((data) => {
+          backend.write(data);
+        });
+
+        term.onResize((data) => {
+          backend.resize(data.cols, data.rows);
+        });
+      });
+    </script>
+  </body>
+</html>
